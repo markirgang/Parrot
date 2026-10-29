@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+*.pyo
+*.log
+.DS_Store
+.env
+.venv/
+hardware_config.json
+cert.pem
+key.pem
+music/*
+!music/.gitkeep

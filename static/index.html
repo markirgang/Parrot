@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemmy AI Parrot Stage Control Center</title>
+    <link rel="stylesheet" href="style.css?v=1">
+    <script src="lib/three.min.js"></script>
+    <script src="lib/OrbitControls.js"></script>
+</head>
+<body>
+    <header class="app-header">
+        <div class="logo-container">
+            <div class="logo-icon">🦜</div>
+            <div class="app-title">GEMMY AI PARROT STAGE CONTROL CENTER</div>
+        </div>
+
+        <nav class="top-nav-tabs">
+            <button class="nav-tab-btn active" data-view="viewAnimation">🎮 Parrot Control</button>
+            <button class="nav-tab-btn" data-view="viewSettings">⚙️ Hardware &amp; Settings</button>
+            <button class="nav-tab-btn" data-view="viewWiring">🔌 Wiring Schematic</button>
+            <button class="nav-tab-btn" data-view="viewInstructions">📖 Guide &amp; Instructions</button>
+        </nav>
+
+        <div class="header-status">
+            <div class="status-badge">
+                <span class="status-dot"></span>
+                <span id="statusText">ONLINE</span>
+            </div>
+            <button class="btn-preset primary" id="btnExportScript">Export Python Code</button>
+        </div>
+    </header>
+
+    <!-- VIEW 1: PARROT CONTROL -->
+    <div class="view-screen active" id="viewAnimation">
+        <aside class="panel left">
+            <div class="panel-section">
+                <div class="section-title">⚡ L298 Motor Drivers (Mouth / Eyes &amp; Wings)</div>
+                <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:12px;">
+                    Channel 1 pulses forward for the beak and reverses for the eyes. Channel 2 holds forward polarity for the wings.
+                </div>
+
+                <div class="leg-card" style="margin-bottom:12px;">
+                    <div class="leg-title" style="color:var(--accent-cyan); display:flex; justify-content:space-between;">
+                        <span>CHANNEL 1: BEAK &amp; EYES</span>
+                        <span id="statusMouth" style="color:var(--text-muted); font-weight:bold;">CLOSED</span>
+                    </div>
+                    <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px; margin-bottom:8px;">
+                        Forward polarity opens the beak. Reverse polarity blinks the eyes.
+                    </div>
+                    <div style="display:flex; gap:6px; margin-bottom:6px;">
+                        <button class="btn-preset primary" id="btnMouthOpen" style="flex:1;">🦜 Open Beak</button>
+                        <button class="btn-preset" id="btnMouthBlink" style="flex:1;">👁️ Blink Eyes</button>
+                    </div>
+                    <button class="btn-preset" id="btnMouthClose" style="width:100%; background:var(--accent-red); color:#fff;">■ Stop Motor</button>
+                </div>
+
+                <div class="leg-card" style="margin-bottom:12px;">
+                    <div class="leg-title" style="color:var(--accent-orange); display:flex; justify-content:space-between;">
+                        <span>CHANNEL 2: WINGS</span>
+                        <span id="statusWings" style="color:var(--text-muted); font-weight:bold;">STILL</span>
+                    </div>
+                    <div style="font-size:0.7rem; color:var(--text-muted); margin-top:4px; margin-bottom:8px;">
+                        Constant forward polarity flaps both wings while music or the dance show is active.
+                    </div>
+                    <button class="btn-preset primary" id="btnWingsToggle" style="width:100%; background:linear-gradient(135deg, var(--accent-orange), var(--accent-purple));">🪽 Flap Wings</button>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">💡 Spotlight &amp; Stage</div>
+
+                <div class="leg-card" style="margin-bottom:12px;">
+                    <div class="leg-title" style="color:var(--accent-cyan); display:flex; justify-content:space-between;">
+                        <span>2-DOF SPOTLIGHT</span>
+                        <span id="statusSpotlight" style="color:var(--text-muted); font-weight:bold;">IDLE</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin:8px 0;">
+                        <button class="btn-preset" data-spot-mode="idle" style="font-size:0.7rem; padding:5px;">Auto Idle</button>
+                        <button class="btn-preset" data-spot-mode="breathe" style="font-size:0.7rem; padding:5px;">Breathe</button>
+                        <button class="btn-preset" data-spot-mode="flash" style="font-size:0.7rem; padding:5px;">Flash</button>
+                        <button class="btn-preset" data-spot-mode="solid" style="font-size:0.7rem; padding:5px;">Solid</button>
+                    </div>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Pan</span><span class="slider-val" id="valSpotPan">90°</span></div>
+                        <input type="range" id="slideSpotPan" min="45" max="135" value="90">
+                    </div>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Tilt</span><span class="slider-val" id="valSpotTilt">90°</span></div>
+                        <input type="range" id="slideSpotTilt" min="45" max="135" value="90">
+                    </div>
+                    <div class="slider-control" style="margin-bottom:0;">
+                        <div class="slider-label"><span>LED Brightness</span><span class="slider-val" id="valSpotIntensity">0%</span></div>
+                        <input type="range" id="slideSpotIntensity" min="0" max="100" value="0">
+                    </div>
+                </div>
+
+                <div class="leg-card" style="margin-bottom:12px;">
+                    <div class="leg-title" style="color:var(--accent-purple); display:flex; justify-content:space-between;">
+                        <span>STAGE TURNTABLE</span>
+                        <span id="statusStage" style="color:var(--text-muted); font-weight:bold;">IDLE</span>
+                    </div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:4px; margin:8px 0;">
+                        <button class="btn-preset" data-stage-mode="idle" style="font-size:0.7rem; padding:5px;">Occasional</button>
+                        <button class="btn-preset" data-stage-mode="talk" style="font-size:0.7rem; padding:5px;">Slow Talk</button>
+                        <button class="btn-preset" data-stage-mode="dance" style="font-size:0.7rem; padding:5px;">Fast Dance</button>
+                        <button class="btn-preset" data-stage-mode="manual" style="font-size:0.7rem; padding:5px;">Manual</button>
+                    </div>
+                    <div class="slider-control" style="margin-bottom:0;">
+                        <div class="slider-label"><span>Stage Angle</span><span class="slider-val" id="valStageAngle">90°</span></div>
+                        <input type="range" id="slideStageAngle" min="30" max="150" value="90">
+                    </div>
+                </div>
+
+                <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,0.2); padding:6px 10px; border-radius:6px;">
+                    <span style="font-size:0.75rem; color:var(--text-primary);">Auto Show Animation:</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="toggleAutomation" checked>
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <div class="section-title">🎭 Quick Performances</div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px;">
+                    <button class="btn-preset" id="btnPresetTalk">🗣️ Talk Show</button>
+                    <button class="btn-preset" id="btnPresetDance">🕺 Dance Party</button>
+                    <button class="btn-preset" id="btnPresetIdle">🌴 Idle Perch</button>
+                    <button class="btn-preset" id="btnPresetBeak">🦜 Beak Test</button>
+                </div>
+            </div>
+        </aside>
+
+        <main class="panel center">
+            <div class="viewport-header">
+                <div class="viewport-title">3D Gemmy Animated Macaw Stage Engine ("Coco")</div>
+                <div class="viewport-actions">
+                    <button class="btn-preset" id="btnResetCam">Reset Camera</button>
+                </div>
+            </div>
+
+            <div id="viewport3d" style="width:100%; height:360px; background:#0a0d14; border-radius:8px; overflow:hidden; position:relative;"></div>
+
+            <div class="telemetry-strip">
+                <div class="telemetry-chip"><span>Mode</span><strong id="statusMode">IDLE</strong></div>
+                <div class="telemetry-chip"><span>Automation</span><strong id="statusAutomation">ON</strong></div>
+                <div class="telemetry-chip"><span>Beat</span><strong id="statusBeat">0%</strong></div>
+                <div class="telemetry-chip"><span>Hardware</span><strong id="statusHardware">CHECKING</strong></div>
+            </div>
+
+            <div style="margin-top:12px; background:var(--panel-card); padding:14px; border-radius:8px; border:1px solid var(--border-color);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <div style="font-size:0.9rem; font-weight:bold; color:var(--accent-cyan);">📹 Parrot Stage Camera &amp; Webcam Mic</div>
+                    <div style="display:flex; gap:6px; align-items:center;">
+                        <select id="selectCamera" style="background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:4px 8px; border-radius:4px; font-size:0.75rem;">
+                            <option value="usb">USB Camera / Webcam</option>
+                            <option value="csi">Raspberry Pi CSI Camera</option>
+                        </select>
+                        <button class="btn-preset primary" id="btnSwitchCamera" style="padding:4px 10px; font-size:0.75rem;">Switch Source</button>
+                    </div>
+                </div>
+                <div style="text-align:center; background:#000; border-radius:8px; padding:4px; border:1px solid var(--border-color);">
+                    <img id="camFeed" src="/api/camera/frame" alt="Camera Feed" style="width:100%; height:320px; border-radius:6px; object-fit:contain; background:#000; display:block;">
+                </div>
+            </div>
+        </main>
+
+        <aside class="panel right">
+            <div style="display:flex; gap:4px; margin-bottom:10px;">
+                <button class="btn-preset active" id="tabGeminiAI" style="flex:1;">🤖 Gemini Voice AI</button>
+                <button class="btn-preset" id="tabMusicPlayer" style="flex:1;">🎵 Music &amp; Dancing</button>
+            </div>
+
+            <div id="sectionGeminiAI">
+                <div class="section-title">🎙️ Hands-Free Voice Assistant</div>
+                <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:10px;">
+                    The beak pulses with speech, the spotlight breathes and the stage sweeps slowly while Coco talks.
+                </div>
+
+                <div style="display:flex; gap:6px; margin-bottom:8px;">
+                    <button class="btn-preset primary" id="btnMic" style="flex:1; background:linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));">🎙️ Start Mic VAD</button>
+                    <button class="btn-preset" id="btnAskVision" style="padding:6px;">👁️ Ask Camera</button>
+                </div>
+
+                <div id="micVuMeterContainer" style="margin-bottom:10px; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:6px; padding:6px 8px;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">
+                        <span>🎙️ Mic VU Meter</span>
+                        <span id="micVuLevelVal" style="color:var(--accent-cyan); font-weight:bold;">0%</span>
+                    </div>
+                    <div style="width:100%; height:10px; background:rgba(255,255,255,0.1); border-radius:5px; overflow:hidden;">
+                        <div id="micVuBar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--accent-cyan), var(--accent-green), var(--accent-orange)); transition:width 0.05s ease; border-radius:5px;"></div>
+                    </div>
+                    <div class="slider-control" style="margin:8px 0 0 0;">
+                        <div class="slider-label"><span>Mic Sensitivity</span><span class="slider-val" id="valMicSensitivity">100%</span></div>
+                        <input type="range" id="slideMicSensitivity" min="10" max="200" value="100">
+                    </div>
+                </div>
+
+                <div id="micStatusText" style="font-size:0.7rem; color:var(--text-muted); margin-bottom:8px;">Status: Click "Start Mic VAD" to listen.</div>
+
+                <div id="chatHistory" style="height:170px; overflow-y:auto; background:var(--input-bg); border-radius:6px; padding:8px; font-size:0.78rem; margin-bottom:8px; border:1px solid var(--border-color);">
+                    <div style="color:var(--text-muted);">[System] Coco is ready. Start the mic or type a message below...</div>
+                </div>
+
+                <div style="display:flex; gap:4px; margin-bottom:10px;">
+                    <input type="text" id="chatInput" placeholder="Type a prompt for Coco..." style="flex:1; background:var(--input-bg); color:#fff; border:1px solid var(--border-color); padding:6px; border-radius:4px; font-size:0.78rem;">
+                    <button class="btn-preset primary" id="btnSendChat" style="padding:6px 12px;">Send</button>
+                </div>
+
+                <div class="slider-control" style="margin-top:6px;">
+                    <div class="slider-label"><span>AI Voice Selection</span></div>
+                    <select id="selectVoice" style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:6px; border-radius:4px; font-size:0.75rem;">
+                        <option value="ai_female_us">♀️ AI Voice - Female (US Accent)</option>
+                        <option value="ai_male_us">♂️ AI Voice - Male (US Accent)</option>
+                        <option value="ai_male_uk">♂️ AI Voice - Male (British Accent)</option>
+                        <option value="ai_female_uk">♀️ AI Voice - Female (British Accent)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="sectionMusicPlayer" style="display:none;">
+                <div class="section-title">🎤 MP3 Import &amp; Dance Sync</div>
+                <div style="font-size:0.72rem; color:var(--text-muted); margin-bottom:8px;">
+                    Import songs to flap the wings, pulse the beak, flash the spotlight and sweep the stage to the beat.
+                </div>
+
+                <audio id="danceAudioPlayer" style="display:none;"></audio>
+
+                <div style="background:rgba(0,240,255,0.1); border:1px solid var(--accent-cyan); padding:8px 10px; border-radius:6px; margin-bottom:10px; text-align:center;">
+                    <div id="nowPlayingTitle" style="font-size:0.8rem; font-weight:bold; color:var(--accent-cyan);">No Track Selected</div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); margin-top:4px;">
+                        <span id="audioCurrentTime">00:00</span>
+                        <input type="range" id="seekAudioSlider" min="0" max="100" value="0" style="flex:1; margin:0 8px;">
+                        <span id="audioTotalDuration">00:00</span>
+                    </div>
+                </div>
+
+                <div style="display:flex; gap:4px; margin-bottom:10px;">
+                    <button class="btn-preset" id="btnPrevTrack" style="padding:6px;">⏮</button>
+                    <button class="btn-preset primary" id="btnPlayPauseNav" style="flex:1; padding:6px;">▶ Play</button>
+                    <button class="btn-preset" id="btnStopNav" style="padding:6px; background:var(--accent-red); color:#fff;">■</button>
+                    <button class="btn-preset" id="btnNextTrack" style="padding:6px;">⏭</button>
+                </div>
+
+                <div style="display:flex; gap:6px; margin-bottom:10px;">
+                    <button class="btn-preset" id="btnLoopToggle" style="flex:1; padding:4px; font-size:0.75rem;">🔁 Loop: Off</button>
+                    <button class="btn-preset" id="btnToggleDance" style="flex:1; padding:4px; font-size:0.75rem; background:linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));">🎵 Audio Sync: ON</button>
+                </div>
+
+                <div id="dropZone" style="border:2px dashed var(--border-color); border-radius:6px; padding:10px; text-align:center; background:rgba(255,255,255,0.02); cursor:pointer; margin-bottom:10px;">
+                    <div style="font-size:0.78rem; color:var(--text-primary); font-weight:bold;">📁 Drop MP3 / WAV / OGG Files Here</div>
+                    <div style="font-size:0.7rem; color:var(--text-muted);">or click to import from your computer</div>
+                    <input type="file" id="mp3FileInput" accept=".mp3,.wav,.ogg,.m4a,.flac" multiple style="display:none;">
+                </div>
+
+                <div style="background:var(--input-bg); border:1px solid var(--border-color); border-radius:6px; padding:8px; margin-bottom:10px;">
+                    <div style="font-size:0.75rem; font-weight:bold; color:var(--accent-cyan); margin-bottom:6px;">🌐 Download Song from Web URL</div>
+                    <div style="display:flex; gap:4px;">
+                        <input type="url" id="inputMp3Url" placeholder="https://example.com/song.mp3" style="flex:1; background:rgba(0,0,0,0.3); color:#fff; border:1px solid var(--border-color); padding:6px; border-radius:4px; font-size:0.75rem;">
+                        <button class="btn-preset primary" id="btnDownloadMp3Url" style="padding:6px 10px; font-size:0.75rem;">⬇️</button>
+                    </div>
+                    <div id="statusDownloadMp3Url" style="font-size:0.7rem; color:var(--text-muted); margin-top:4px; display:none;"></div>
+                </div>
+
+                <div class="slider-control">
+                    <div class="slider-label"><span>🔊 Volume</span><span class="slider-val" id="valVolumeText">100%</span></div>
+                    <input type="range" id="volumeAudioSlider" min="0" max="100" value="100">
+                </div>
+
+                <div class="slider-control">
+                    <div class="slider-label"><span>Dance Beat Sensitivity</span><span class="slider-val" id="valDanceSensitivity">100%</span></div>
+                    <input type="range" id="slideDanceSensitivity" min="50" max="200" value="100">
+                </div>
+
+                <div style="margin-bottom:10px; background:rgba(0,0,0,0.3); border:1px solid var(--border-color); border-radius:6px; padding:6px 8px;">
+                    <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">
+                        <span>🥁 Beat Energy</span>
+                        <span id="danceBeatEnergyVal" style="color:var(--accent-orange); font-weight:bold;">0%</span>
+                    </div>
+                    <div style="width:100%; height:8px; background:rgba(255,255,255,0.1); border-radius:4px; overflow:hidden;">
+                        <div id="danceBeatEnergyBar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--accent-cyan), var(--accent-orange)); border-radius:4px;"></div>
+                    </div>
+                </div>
+
+                <div id="playlistContainer" style="max-height:150px; overflow-y:auto; background:var(--input-bg); border-radius:6px; padding:6px; border:1px solid var(--border-color);"></div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- VIEW 2: HARDWARE SETTINGS -->
+    <div class="view-screen" id="viewSettings">
+        <div class="panel center" style="max-width:820px; margin:20px auto;">
+            <div class="section-title">⚙️ Gemmy AI Parrot Hardware Settings</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">
+                Configure camera, microphone, speaker routing, mic sensitivity and master volume.
+            </div>
+
+            <div class="leg-card" style="margin-bottom:12px;">
+                <div class="leg-title" style="color:var(--accent-purple); display:flex; justify-content:space-between; align-items:center;">
+                    <span>🤖 GOOGLE GEMINI AI API KEY</span>
+                    <span id="statusApiKeySettings" style="font-size:0.75rem; color:var(--accent-green);">Not configured</span>
+                </div>
+                <div style="font-size:0.78rem; color:var(--text-muted); margin-top:6px; margin-bottom:10px;">
+                    Used for voice conversation, camera vision and performance function calls. You can also set the GEMINI_API_KEY environment variable on the Pi.
+                </div>
+                <div style="display:flex; gap:6px;">
+                    <input type="password" id="inputApiKeySettings" placeholder="Enter Gemini API Key..." style="flex:1; background:var(--input-bg); color:#fff; border:1px solid var(--border-color); padding:8px 10px; border-radius:6px; font-size:0.8rem;">
+                    <button class="btn-preset primary" id="btnSaveApiKeySettings" style="padding:8px 16px;">Save Key</button>
+                    <button class="btn-preset" id="btnResetApiKeySettings" style="padding:8px 12px; background:var(--input-bg);">Clear</button>
+                </div>
+            </div>
+
+            <div class="leg-card" style="margin-bottom:12px;">
+                <div class="leg-title" style="color:var(--accent-cyan); display:flex; justify-content:space-between; align-items:center;">
+                    <span>📹 🎙️ 🔊 CAMERA, MICROPHONE &amp; SPEAKER</span>
+                    <span id="statusHardwareSettings" style="font-size:0.75rem; color:var(--accent-green);">Ready</span>
+                </div>
+
+                <div style="margin-bottom:12px; background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border:1px solid var(--border-color);">
+                    <div style="font-size:0.78rem; font-weight:bold; color:var(--accent-cyan); margin-bottom:6px;">📹 Camera Device</div>
+                    <div style="display:flex; gap:6px;">
+                        <select id="selectCameraSettings" style="flex:1; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:6px; border-radius:4px; font-size:0.78rem;">
+                            <option value="usb">USB Webcam (default)</option>
+                            <option value="usb1">USB Camera 1 (/dev/video1)</option>
+                            <option value="csi">Raspberry Pi CSI Camera</option>
+                        </select>
+                        <button class="btn-preset primary" id="btnSaveCameraSettings" style="padding:6px 12px; font-size:0.75rem;">Save</button>
+                    </div>
+                </div>
+
+                <div style="margin-bottom:12px; background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border:1px solid var(--border-color);">
+                    <div style="font-size:0.78rem; font-weight:bold; color:var(--accent-green); margin-bottom:6px;">🎙️ Microphone Source &amp; Sensitivity</div>
+                    <div style="display:flex; gap:6px; margin-bottom:6px;">
+                        <select id="selectMicSettings" style="flex:1; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:6px; border-radius:4px; font-size:0.78rem;">
+                            <option value="browser">🌐 Remote Browser / Webcam Microphone</option>
+                            <option value="default">🎙️ Raspberry Pi Local Microphone</option>
+                        </select>
+                        <button class="btn-preset primary" id="btnRefreshMics" style="padding:6px 10px; font-size:0.75rem;">Refresh</button>
+                    </div>
+                    <select id="selectMicDevice" style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:6px; border-radius:4px; font-size:0.78rem; margin-bottom:8px;">
+                        <option value="">Browser default microphone</option>
+                    </select>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Mic VAD Sensitivity</span><span class="slider-val" id="valMicGainSettings">100%</span></div>
+                        <input type="range" id="slideMicGainSettings" min="10" max="200" value="100">
+                    </div>
+                    <button class="btn-preset primary" id="btnSaveMicSettings" style="width:100%; padding:6px; font-size:0.75rem;">Save Microphone</button>
+                </div>
+
+                <div style="background:rgba(0,0,0,0.2); padding:10px; border-radius:6px; border:1px solid var(--border-color);">
+                    <div style="font-size:0.78rem; font-weight:bold; color:var(--accent-orange); margin-bottom:6px;">🔊 Speaker / Audio Output</div>
+                    <select id="selectSpeakerSettings" style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:6px; border-radius:4px; font-size:0.78rem; margin-bottom:8px;">
+                        <option value="browser">🌐 Remote Browser Speakers</option>
+                        <option value="default">🔊 Raspberry Pi Local Speaker</option>
+                    </select>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Master Speaker Volume</span><span class="slider-val" id="valSpeakerVolSettings">100%</span></div>
+                        <input type="range" id="slideSpeakerVolSettings" min="0" max="100" value="100">
+                    </div>
+                    <button class="btn-preset primary" id="btnSaveSpeakerSettings" style="width:100%; padding:6px; font-size:0.75rem;">Save Speaker</button>
+                </div>
+            </div>
+
+            <div class="leg-card">
+                <div class="leg-title" style="color:var(--accent-red); margin-bottom:8px;">🔧 LIVE GPIO STATUS</div>
+                <div id="gpioStatusText" style="font-size:0.78rem; color:var(--text-muted); line-height:1.6;">
+                    Checking Raspberry Pi GPIO...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 3: WIRING SCHEMATIC -->
+    <div class="view-screen" id="viewWiring">
+        <div class="panel center" style="max-width:980px; margin:20px auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                <div>
+                    <div class="section-title">🔌 Gemmy AI Parrot Stage Wiring Diagram</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
+                        Raspberry Pi 5, L298N dual H-bridge, IRLZ44N spotlight MOSFET, 2-DOF spotlight servos and stage turntable servo.
+                    </div>
+                </div>
+                <a href="/api/export-pdf" target="_blank" class="btn-preset primary" style="text-decoration:none; padding:8px 16px;">📄 Download PDF Schematic</a>
+            </div>
+
+            <div class="leg-card" style="margin-bottom:16px; background:rgba(15,23,42,0.9); border:1px solid var(--accent-cyan);">
+                <div class="leg-title" style="color:var(--accent-cyan); margin-bottom:10px;">⚡ SYSTEM HARDWARE ARCHITECTURE</div>
+                <pre style="font-family: monospace; font-size:0.75rem; color:#a5f3fc; background:#080d1a; padding:12px; border-radius:6px; overflow-x:auto; line-height:1.4; border:1px solid var(--border-color);">
++-----------------------------------------------------------------------------------+
+|                        RASPBERRY PI 5  -  AI PARROT CONTROLLER                   |
+|  Camera / webcam mic  |  Gemini AI  |  Web UI  |  Local or remote audio output     |
++------------------+------------------+---------------------+-------------------------+
+                   |                  |                     |
+                   v                  v                     v
+        +--------------------+  +-------------------+  +----------------------------+
+        | L298N CHANNEL 1    |  | L298N CHANNEL 2   |  | IRLZ44N MOSFET + SERVOS    |
+        | ENA 18 / IN1 23    |  | ENB 19 / IN3 25   |  | LED 12 (spotlight PWM)     |
+        | IN2 24             |  | IN4 8             |  | PAN 13 / TILT 16 (2-DOF)   |
+        | Forward = beak     |  | Forward = wings   |  | STAGE 9 (turntable)        |
+        | Reverse = eyes     |  | Constant polarity |  | 5-6V servo rail            |
+        +--------------------+  +-------------------+  +----------------------------+
+                   |                  |                     |
+                   v                  v                     v
+            +-------------+    +-------------+      +-----------------------------+
+            | MOUTH/EYES  |    | WING MOTOR  |      | 12V SPOTLIGHT LED + SERVOS  |
+            | DC MOTOR    |    | DC MOTOR    |      | STAGE + 2-DOF SPOTLIGHT     |
+            +-------------+    +-------------+      +-----------------------------+
+                </pre>
+            </div>
+
+            <div class="leg-card" style="margin-bottom:16px;">
+                <div class="leg-title" style="color:var(--accent-purple); margin-bottom:10px;">📌 RASPBERRY PI 40-PIN GPIO CONNECTIONS</div>
+                <table style="width:100%; border-collapse:collapse; font-size:0.78rem; text-align:left;">
+                    <thead>
+                        <tr style="background:rgba(255,255,255,0.05); color:var(--accent-cyan); border-bottom:1px solid var(--border-color);">
+                            <th style="padding:8px;">Pin #</th>
+                            <th style="padding:8px;">BCM GPIO</th>
+                            <th style="padding:8px;">Signal</th>
+                            <th style="padding:8px;">Target</th>
+                            <th style="padding:8px;">Function</th>
+                        </tr>
+                    </thead>
+                    <tbody style="color:var(--text-primary);">
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <td style="padding:8px; font-weight:bold; color:var(--accent-cyan);">Pin 12</td>
+                            <td style="padding:8px;">GPIO 18</td>
+                            <td style="padding:8px;">PWM</td>
+                            <td style="padding:8px;">L298 ENA</td>
+                            <td style="padding:8px;"><b>Beak / eye motor speed</b></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <td style="padding:8px; font-weight:bold; color:var(--accent-cyan);">Pin 16</td>
+                            <td style="padding:8px;">GPIO 23</td>
+                            <td style="padding:8px;">Digital</td>
+                            <td style="padding:8px;">L298 IN1</td>
+                            <td style="padding:8px;">Forward polarity = beak open</td>
+                        </tr>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <td style="padding:8px; font-weight:bold; color:var(--accent-cyan);">Pin 18</td>
+                            <td style="padding:8px;">GPIO 24</td>
+                            <td style="padding:8px;">Digital</td>
+                            <td style="padding:8px;">L298 IN2</td>
+                            <td style="padding:8px;">Reverse polarity = eyes blink</td>
+                        </tr>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <td style="padding:8px; font-weight:bold; color:var(--accent-orange);">Pin 35</td>
+                            <td style="padding:8px;">GPIO 19</td>
+                            <td style="padding:8px;">PWM</td>
+                            <td style="padding:8px;">L298 ENB</td>
+                            <td style="padding:8px;"><b>Wing motor speed</b></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <td style="padding:8px; font-weight:bold; color:var(--accent-orange);">Pin 22</td>
+                            <td style="padding:8px;">GPIO 25</td>
+                            <td style="padding:8px;">Digital</td>
+                            <td style="padding:8px;">L298 IN3</td>
+                            <td style="padding:8px;">Forward polarity = wings flap</td>
+                        </tr>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <td style="padding:8px; font-weight:bold; color:var(--accent-orange);">Pin 24</td>
+                            <td style="padding:8px;">GPIO 8</td>
+                            <td style="padding:8px;">Digital</td>
+                            <td style="padding:8px;">L298 IN4</td>
+                            <td style="padding:8px;">Wing direction return</td>
+                        </tr>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <td style="padding:8px; font-weight:bold; color:var(--accent-green);">Pin 32</td>
+                            <td style="padding:8px;">GPIO 12</td>
+                            <td style="padding:8px;">PWM</td>
+                            <td style="padding:8px;">IRLZ44N Gate</td>
+                            <td style="padding:8px;"><b>Spotlight LED brightness / flash</b></td>
+                        </tr>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <td style="padding:8px; font-weight:bold; color:var(--accent-green);">Pin 33</td>
+                            <td style="padding:8px;">GPIO 13</td>
+                            <td style="padding:8px;">PWM</td>
+                            <td style="padding:8px;">Spotlight Pan Servo</td>
+                            <td style="padding:8px;">Left / right pan (45-135°)</td>
+                        </tr>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <td style="padding:8px; font-weight:bold; color:var(--accent-green);">Pin 36</td>
+                            <td style="padding:8px;">GPIO 16</td>
+                            <td style="padding:8px;">PWM</td>
+                            <td style="padding:8px;">Spotlight Tilt Servo</td>
+                            <td style="padding:8px;">Up / down tilt (45-135°)</td>
+                        </tr>
+                        <tr style="border-bottom:1px solid rgba(255,255,255,0.03);">
+                            <td style="padding:8px; font-weight:bold; color:var(--accent-purple);">Pin 21</td>
+                            <td style="padding:8px;">GPIO 9</td>
+                            <td style="padding:8px;">PWM</td>
+                            <td style="padding:8px;">Stage Servo</td>
+                            <td style="padding:8px;">Turntable sweep (30-150°)</td>
+                        </tr>
+                        <tr>
+                            <td style="padding:8px; font-weight:bold; color:var(--text-muted);">Pin 6 / 9 / 14 / 20 / 25 / 30 / 34 / 39</td>
+                            <td style="padding:8px;">GND</td>
+                            <td style="padding:8px;">Ground</td>
+                            <td style="padding:8px;">Common GND bus</td>
+                            <td style="padding:8px;">Pi, L298N, MOSFET source, servos and 12V supply</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="leg-card" style="margin-bottom:16px;">
+                <div class="leg-title" style="color:var(--accent-green); margin-bottom:10px;">⚙️ L298N LOGIC TRUTH TABLE</div>
+                <div style="font-size:0.78rem; color:var(--text-primary); line-height:1.7;">
+                    <b>• Beak open (Channel 1 forward):</b> ENA = PWM, IN1 = HIGH, IN2 = LOW &rarr; beak opens in speech rhythm.<br>
+                    <b>• Eyes blink (Channel 1 reverse):</b> ENA = PWM 65%, IN1 = LOW, IN2 = HIGH &rarr; eye mechanism blinks.<br>
+                    <b>• Channel 1 stop:</b> ENA = 0, IN1 = LOW, IN2 = LOW &rarr; beak and eyes rest.<br>
+                    <b>• Wings flap (Channel 2 forward):</b> ENB = PWM 90%, IN3 = HIGH, IN4 = LOW &rarr; wings apply constant forward polarity.<br>
+                    <b>• Channel 2 stop:</b> ENB = 0, IN3 = LOW, IN4 = LOW.
+                </div>
+            </div>
+
+            <div class="leg-card">
+                <div class="leg-title" style="color:var(--accent-orange); margin-bottom:10px;">💡 SPOTLIGHT &amp; STAGE BEHAVIOUR</div>
+                <div style="font-size:0.78rem; color:var(--text-primary); line-height:1.7;">
+                    <b>• Dancing:</b> the IRLZ44N gate is PWM-flashed, the 2-DOF spotlight sweeps with the beat and the stage servo sweeps rapidly.<br>
+                    <b>• Talking:</b> the LED shines steadily from the center position and breathes slowly; the stage sweeps slowly.<br>
+                    <b>• Idle:</b> the spotlight rests dim at center and the stage makes an occasional slow sweep.<br>
+                    <b>• Power:</b> use a separate 5-6V servo supply with a common ground. Never power the servos from the Pi 5 5V pin.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 4: INSTRUCTIONS -->
+    <div class="view-screen" id="viewInstructions">
+        <div class="panel center" style="max-width:900px; margin:20px auto;">
+            <div class="section-title">📖 Gemmy AI Parrot Operating Manual</div>
+            <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:16px;">
+                Assembly, wiring, Raspberry Pi 5 setup, AI conversation, local/remote audio and music performance guide.
+            </div>
+
+            <div class="leg-card" style="margin-bottom:14px;">
+                <div class="leg-title" style="color:var(--accent-cyan);">1. 🦜 MECHANICAL ASSEMBLY</div>
+                <div style="font-size:0.78rem; color:var(--text-primary); line-height:1.6; margin-top:8px;">
+                    1. Mount the large Gemmy toy parrot on the stage perch and balance it over the turntable servo.<br>
+                    2. Couple the L298N channel 1 output to the mouth / eye mechanism so forward polarity opens the beak and reverse polarity blinks the eyes.<br>
+                    3. Couple channel 2 to the wing linkage so constant forward polarity flaps both wings.<br>
+                    4. Fit the 2-DOF spotlight on its pan/tilt bracket and aim it at the parrot.<br>
+                    5. Confirm the stage servo can rotate freely through 30-150° without straining the wiring.
+                </div>
+            </div>
+
+            <div class="leg-card" style="margin-bottom:14px;">
+                <div class="leg-title" style="color:var(--accent-orange);">2. ⚡ POWER &amp; WIRING</div>
+                <div style="font-size:0.78rem; color:var(--text-primary); line-height:1.6; margin-top:8px;">
+                    1. Power the L298N motor rail from a 12V supply and connect the Pi 5 through its own 5V/5A USB-C supply.<br>
+                    2. <u>Common ground is critical:</u> join the Pi GND, L298N GND, IRLZ44N source, servo supply GND and 12V supply GND.<br>
+                    3. Wire GPIO 12 through a 220Ω resistor to the IRLZ44N gate and add a 10kΩ pull-down to GND.<br>
+                    4. Power the spotlight LED from 12V through the MOSFET drain/source path.<br>
+                    5. Use a separate 5-6V 5A supply for the three servos.
+                </div>
+            </div>
+
+            <div class="leg-card" style="margin-bottom:14px;">
+                <div class="leg-title" style="color:var(--accent-purple);">3. 💻 SOFTWARE STARTUP</div>
+                <div style="font-size:0.78rem; color:var(--text-primary); line-height:1.6; margin-top:8px;">
+                    1. Install dependencies: <code>pip install google-genai opencv-python numpy gTTS reportlab gpiozero lgpio</code>.<br>
+                    2. Start the server: <code>python3 server.py --host 0.0.0.0 --port 1690</code>.<br>
+                    3. Open <code>http://&lt;raspberry-pi-ip&gt;:1690</code> from the Pi or any remote computer.<br>
+                    4. Add a Gemini API key in <b>Hardware &amp; Settings</b> or export <code>GEMINI_API_KEY</code> before starting the server.
+                </div>
+            </div>
+
+            <div class="leg-card" style="margin-bottom:14px;">
+                <div class="leg-title" style="color:var(--accent-green);">4. 🎙️ VOICE &amp; AUDIO ROUTING</div>
+                <div style="font-size:0.78rem; color:var(--text-primary); line-height:1.6; margin-top:8px;">
+                    1. The browser microphone can come from a remote laptop, phone or the webcam on the Pi.<br>
+                    2. Use the mic VU meter and sensitivity slider to tune voice activity detection.<br>
+                    3. Choose a remote speaker to hear Coco on the browser device anywhere in the world, or a local Pi speaker to play through the Raspberry Pi.<br>
+                    4. The master volume slider applies to browser playback and to local server playback.
+                </div>
+            </div>
+
+            <div class="leg-card">
+                <div class="leg-title" style="color:var(--accent-red);">5. 🎵 MUSIC &amp; TROUBLESHOOTING</div>
+                <div style="font-size:0.78rem; color:var(--text-primary); line-height:1.6; margin-top:8px;">
+                    • Import MP3/WAV/OGG files by drag-and-drop or direct URL. Select <b>Play &amp; Dance</b> to start the show.<br>
+                    • The analyser pulses the beak, flaps the wings, flashes the spotlight and sweeps the stage to the beat.<br>
+                    • No movement? Check the GPIO status card and verify the common ground bus.<br>
+                    • No audio on the Pi? Select a local speaker in Settings and confirm <code>pw-play</code> or <code>aplay</code> works.<br>
+                    • No AI reply? Confirm the Gemini key and internet connection.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="parrot3d.js?v=1"></script>
+    <script src="gemini_chat.js?v=1"></script>
+    <script src="dance_engine.js?v=1"></script>
+    <script src="/audio_output.js?v=1"></script>
+    <script src="app.js?v=1"></script>
+</body>
+</html>
