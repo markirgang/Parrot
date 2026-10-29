@@ -28,7 +28,7 @@ import local_audio
 from gemini_bridge import GeminiParrotBridge
 from hardware import hardware, PINS
 
-PORT = int(os.environ.get("PORT", 1690))
+PORT = int(os.environ.get("PORT", 1790))
 HOST = os.environ.get("HOST", os.environ.get("IP", "127.0.0.1"))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DIRECTORY = os.environ.get("DIRECTORY", os.path.join(BASE_DIR, "static"))

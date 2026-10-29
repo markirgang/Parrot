@@ -72,12 +72,12 @@ export GEMINI_API_KEY="your-key-here"   # optional, can also be set in the UI
 python3 server.py
 ```
 
-Open <http://127.0.0.1:1690> on the Pi, or `http://<pi-ip>:1690` from another
+Open <http://127.0.0.1:1790> on the Pi, or `http://<pi-ip>:1790` from another
 device on the network. Environment variables:
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `PORT` | `1690` | HTTP port |
+| `PORT` | `1790` | HTTP port |
 | `HOST` / `IP` | `127.0.0.1` | Bind address (`0.0.0.0` for LAN access) |
 | `GEMINI_API_KEY` | – | Server-side Gemini key |
 | `DIRECTORY` | `./static` | Web root |
