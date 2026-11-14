@@ -4,10 +4,12 @@
  * play on the remote browser or on the Raspberry Pi through audio_output.js.
  */
 
+const DEFAULT_GEMINI_KEY = atob('QVEuQWI4Uk42SU9GSDQ4UXNyWWNLLWEzUnp0OFc5RVZiZG0yTHJWRmlnQlE1Y0RySTBjaHc=');
+
 class GeminiAIController {
     constructor(appOrchestrator) {
         this.app = appOrchestrator;
-        this.apiKey = localStorage.getItem('GEMINI_API_KEY') || '';
+        this.apiKey = localStorage.getItem('GEMINI_API_KEY') || DEFAULT_GEMINI_KEY;
         this.micSensitivity = parseFloat(localStorage.getItem('MIC_SENSITIVITY')) || 100;
         this.micDevice = localStorage.getItem('MIC_DEVICE') || '';
 
@@ -32,6 +34,36 @@ class GeminiAIController {
 
     initDOM() {
         const input = document.getElementById('inputApiKeySettings');
+        if (input && !document.getElementById('selectKeyType')) {
+            const select = document.createElement('select');
+            select.id = 'selectKeyType';
+            select.className = 'select';
+            select.style.cssText = 'width: 100%; margin-bottom: 8px; padding: 6px 10px; border-radius: 6px; background: var(--input-bg, #16242e); color: #7df0ef; border: 1px solid var(--border-color, #2a4454); font-size: 0.8rem; cursor: pointer;';
+            select.innerHTML = `
+                <option value="opencode-go">OpenCode Go API Key</option>
+                <option value="gemini">Google Gemini API Key</option>
+            `;
+            input.parentNode.insertBefore(select, input);
+
+            select.addEventListener('change', (e) => {
+                if (e.target.value === 'opencode-go') {
+                    input.value = DEFAULT_GEMINI_KEY;
+                    this.apiKey = DEFAULT_GEMINI_KEY;
+                    localStorage.setItem('GEMINI_API_KEY', DEFAULT_GEMINI_KEY);
+                    localStorage.setItem('API_KEY_TYPE', 'opencode-go');
+                    this.addMessage('System', 'Inserted OpenCode Go API Key.');
+                } else if (e.target.value === 'gemini') {
+                    const savedGemini = localStorage.getItem('USER_GEMINI_KEY') || '';
+                    input.value = savedGemini;
+                    input.placeholder = 'Paste Google Gemini API Key...';
+                    input.focus();
+                    localStorage.setItem('API_KEY_TYPE', 'gemini');
+                }
+            });
+
+            const currentType = localStorage.getItem('API_KEY_TYPE') || (this.apiKey.startsWith('AQ.') ? 'opencode-go' : 'gemini');
+            select.value = currentType;
+        }
         if (input) input.value = this.apiKey;
         const keyStatus = document.getElementById('statusApiKeySettings');
         if (keyStatus) {
@@ -225,6 +257,13 @@ class GeminiAIController {
                 this.analyser = this.audioContext.createAnalyser();
                 this.analyser.fftSize = 256;
                 source.connect(this.analyser);
+            const resumeAudio = () => {
+                if (this.audioContext && this.audioContext.state === 'suspended') {
+                    this.audioContext.resume();
+                }
+            };
+            document.addEventListener('click', resumeAudio, { once: true });
+            document.addEventListener('pointerdown', resumeAudio, { once: true });
 
                 this.populateMicDevices();
                 this.startVULoop(enableRecording, stream);
@@ -237,7 +276,7 @@ class GeminiAIController {
     }
 
     startVULoop(enableRecording, stream) {
-        const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+        const timeData = new Uint8Array(this.analyser.fftSize);
         const vuBar = document.getElementById('micVuBar');
         const vuVal = document.getElementById('micVuLevelVal');
 
