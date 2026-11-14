@@ -139,6 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setupSpotlightStageControls(appAPI);
     setupPresets(appAPI);
     setupCamera(appAPI);
+    setupProfileSettings(appAPI, geminiController);
     setupHardwareSettings(appAPI);
     setupExport();
 
@@ -559,6 +560,219 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             })
             .catch(() => {});
+    }
+
+
+    function setupProfileSettings(api, geminiController) {
+        const el = (id) => document.getElementById(id);
+        const nameInput = el('profileNameInput');
+        const personality = el('profilePersonalitySelect');
+        const customWrap = el('profileCustomPersonalityWrap');
+        const customText = el('profileCustomPersonality');
+        const mimicToggle = el('profileMimicToggle');
+        const voice = el('profileVoiceSelect');
+        const speaker = el('profileSpeakerSelect');
+        const volume = el('profileVolumeSlider');
+        const volumeVal = el('profileVolumeVal');
+        const micSource = el('profileMicSource');
+        const micDevice = el('profileMicDevice');
+        const micSensitivity = el('profileMicSensitivity');
+        const micSensitivityVal = el('profileMicSensitivityVal');
+        const camera = el('profileCameraSource');
+        const status = el('statusProfileSave');
+        const btnSave = el('btnSaveProfile');
+        const btnReset = el('btnResetProfile');
+        const btnTest = el('btnTestProfileVoice');
+
+        if (!nameInput || !btnSave) return;
+
+        function setStatus(message, color) {
+            if (!status) return;
+            status.textContent = message;
+            status.style.color = color || 'var(--accent-green)';
+        }
+
+        function syncCustomVisibility() {
+            if (customWrap) customWrap.style.display = personality && personality.value === 'custom' ? 'block' : 'none';
+        }
+
+        function setSelectIfAvailable(id, value) {
+            const select = el(id);
+            if (!select) return;
+            const option = Array.from(select.options).find((item) => item.value === value);
+            if (option) select.value = value;
+        }
+
+        function setSliderLabels() {
+            if (volumeVal) volumeVal.textContent = (volume ? volume.value : 100) + '%';
+            if (micSensitivityVal) micSensitivityVal.textContent = (micSensitivity ? micSensitivity.value : 100) + '%';
+        }
+
+        function applyProfile(profile, announce) {
+            if (!profile) return;
+            const name = profile.name || 'Coco';
+            nameInput.value = name;
+            if (personality) {
+                personality.value = profile.personality || 'playful';
+                if (!Array.from(personality.options).some((item) => item.value === personality.value)) {
+                    personality.value = 'playful';
+                }
+            }
+            if (customText) customText.value = profile.personality_custom || '';
+            if (mimicToggle) mimicToggle.checked = !!profile.mimic_mode;
+            if (voice) voice.value = profile.voice || 'ai_female_us';
+            if (micSource) micSource.value = profile.mic_source || 'browser';
+            if (camera) camera.value = profile.camera_source || 'usb';
+
+            const sensitivity = parseInt(profile.mic_sensitivity, 10) || 100;
+            if (micSensitivity) micSensitivity.value = sensitivity;
+
+            const speakerSource = profile.speaker_source || 'browser';
+            const target = speakerSource === 'default' ? 'local:default' : 'browser';
+            if (speaker) speaker.value = target;
+
+            const configuredVolume = parseInt(profile.speaker_volume, 10);
+            if (volume) volume.value = isNaN(configuredVolume) ? 100 : configuredVolume;
+            setSliderLabels();
+            syncCustomVisibility();
+
+            if (geminiController) {
+                geminiController.profileName = name;
+                geminiController.micSensitivity = sensitivity;
+                localStorage.setItem('MIC_SENSITIVITY', sensitivity);
+                if (profile.mic_device !== undefined) geminiController.setMicDevice(profile.mic_device || '');
+            }
+
+            const mainVoice = el('selectVoice');
+            if (mainVoice && voice) mainVoice.value = voice.value;
+            const mainCamera = el('selectCamera');
+            if (mainCamera && camera) setSelectIfAvailable('selectCamera', camera.value);
+            setSelectIfAvailable('selectCameraSettings', camera ? camera.value : 'usb');
+            setSelectIfAvailable('selectMicSettings', profile.mic_source || 'browser');
+            setSelectIfAvailable('selectSpeakerSettings', speakerSource);
+            if (micDevice && profile.mic_device !== undefined) micDevice.value = profile.mic_device || '';
+
+            const settingsMic = el('slideMicGainSettings');
+            if (settingsMic) settingsMic.value = sensitivity;
+            const settingsMicVal = el('valMicGainSettings');
+            if (settingsMicVal) settingsMicVal.textContent = sensitivity + '%';
+            const mainMic = el('slideMicSensitivity');
+            if (mainMic) mainMic.value = sensitivity;
+            const mainMicVal = el('valMicSensitivity');
+            if (mainMicVal) mainMicVal.textContent = sensitivity + '%';
+            const settingsVol = el('slideSpeakerVolSettings');
+            if (settingsVol) settingsVol.value = volume ? volume.value : 100;
+
+            if (window.AudioOutputDevices) {
+                if (AudioOutputDevices.setTarget) AudioOutputDevices.setTarget(target);
+                if (AudioOutputDevices.populate) AudioOutputDevices.populate();
+            }
+            if (volume) api.setVolume(volume.value);
+            if (announce) setStatus('✅ Profile saved for ' + name, 'var(--accent-green)');
+        }
+
+        function collectProfile() {
+            const speakerValue = speaker ? speaker.value : 'browser';
+            return {
+                name: nameInput.value.trim() || 'Coco',
+                personality: personality ? personality.value : 'playful',
+                personality_custom: customText ? customText.value.trim() : '',
+                mimic_mode: !!(mimicToggle && mimicToggle.checked),
+                voice: voice ? voice.value : 'ai_female_us',
+                camera_source: camera ? camera.value : 'usb',
+                mic_source: micSource ? micSource.value : 'browser',
+                mic_device: micDevice ? micDevice.value : '',
+                mic_sensitivity: micSensitivity ? parseInt(micSensitivity.value, 10) : 100,
+                speaker_source: speakerValue.indexOf('local:') === 0 ? 'default' : 'browser',
+                speaker_volume: volume ? parseInt(volume.value, 10) : 100
+            };
+        }
+
+        function saveProfile(profile, announce) {
+            setStatus('⏳ Saving profile...', 'var(--accent-cyan)');
+            postJSON('/api/profile', { profile: profile }).then((data) => {
+                if (data.success) {
+                    applyProfile(data.profile, announce);
+                    if (announce) {
+                        setStatus('✅ Profile saved for ' + (data.profile.name || 'Coco'), 'var(--accent-green)');
+                    }
+                } else {
+                    setStatus('❌ ' + (data.error || 'Could not save profile'), 'var(--accent-red)');
+                }
+            });
+        }
+
+        function loadProfile() {
+            fetch('/api/profile')
+                .then((res) => res.json())
+                .then((data) => {
+                    if (data.profile) applyProfile(data.profile, false);
+                    if (data.personalities && !customText) {
+                        // The static options mirror the server presets; nothing else needed.
+                    }
+                })
+                .catch(() => setStatus('❌ Could not load profile', 'var(--accent-red)'));
+        }
+
+        if (personality) personality.addEventListener('change', syncCustomVisibility);
+        if (volume) volume.addEventListener('input', () => {
+            setSliderLabels();
+            api.setVolume(volume.value);
+        });
+        if (micSensitivity) micSensitivity.addEventListener('input', () => {
+            setSliderLabels();
+            const value = parseInt(micSensitivity.value, 10);
+            if (geminiController) {
+                geminiController.micSensitivity = value;
+                localStorage.setItem('MIC_SENSITIVITY', value);
+            }
+            const settingsMic = el('slideMicGainSettings');
+            if (settingsMic) settingsMic.value = value;
+            const settingsMicVal = el('valMicGainSettings');
+            if (settingsMicVal) settingsMicVal.textContent = value + '%';
+            const mainMic = el('slideMicSensitivity');
+            if (mainMic) mainMic.value = value;
+            const mainMicVal = el('valMicSensitivity');
+            if (mainMicVal) mainMicVal.textContent = value + '%';
+        });
+        if (micDevice) micDevice.addEventListener('change', () => {
+            if (geminiController) geminiController.setMicDevice(micDevice.value);
+        });
+
+        if (btnSave) btnSave.addEventListener('click', () => saveProfile(collectProfile(), true));
+        if (btnReset) {
+            btnReset.addEventListener('click', () => {
+                if (!confirm('Reset the parrot profile to the default playful Coco settings?')) return;
+                saveProfile({
+                    name: 'Coco',
+                    personality: 'playful',
+                    personality_custom: '',
+                    mimic_mode: false,
+                    voice: 'ai_female_us',
+                    camera_source: 'usb',
+                    mic_source: 'browser',
+                    mic_device: '',
+                    mic_sensitivity: 100,
+                    speaker_source: 'browser',
+                    speaker_volume: 100
+                }, true);
+            });
+        }
+        if (btnTest) {
+            btnTest.addEventListener('click', () => {
+                if (!geminiController) return;
+                const selectedVoice = voice ? voice.value : 'ai_female_us';
+                const mainVoice = el('selectVoice');
+                if (mainVoice) mainVoice.value = selectedVoice;
+                const parrotName = nameInput.value.trim() || 'Coco';
+                geminiController.speak('Hi, I am ' + parrotName + '. Welcome to the show!');
+            });
+        }
+
+        const profileTab = document.querySelector('[data-view="viewProfile"]');
+        if (profileTab) profileTab.addEventListener('click', loadProfile);
+
+        loadProfile();
     }
 
     function setupTopNavTabs() {

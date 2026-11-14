@@ -11,6 +11,7 @@ class GeminiAIController {
         this.micSensitivity = parseFloat(localStorage.getItem('MIC_SENSITIVITY')) || 100;
         this.micDevice = localStorage.getItem('MIC_DEVICE') || '';
 
+        this.profileName = 'Coco';
         this.isListening = false;
         this.aiSpeaking = false;
         this.speechEndTimer = null;
@@ -138,20 +139,24 @@ class GeminiAIController {
     }
 
     async populateMicDevices() {
-        const select = document.getElementById('selectMicDevice');
-        if (!select || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
+        const ids = ['selectMicDevice', 'profileMicDevice'];
+        const selects = ids.map((id) => document.getElementById(id)).filter(Boolean);
+        if (!selects.length || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
 
         try {
             const devices = await navigator.mediaDevices.enumerateDevices();
             const inputs = devices.filter((d) => d.kind === 'audioinput');
-            const saved = this.micDevice || select.dataset.saved || '';
-            select.innerHTML = '<option value="">Browser default microphone</option>';
-            inputs.forEach((device, index) => {
-                const option = document.createElement('option');
-                option.value = device.deviceId;
-                option.textContent = device.label || ('Microphone ' + (index + 1));
-                if (device.deviceId === saved) option.selected = true;
-                select.appendChild(option);
+            const saved = this.micDevice || selects[0].dataset.saved || '';
+            selects.forEach((select) => {
+                select.innerHTML = '<option value="">Browser default microphone</option>';
+                inputs.forEach((device, index) => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.textContent = device.label || ('Microphone ' + (index + 1));
+                    if (device.deviceId === saved) option.selected = true;
+                    select.appendChild(option);
+                });
+                if (saved) select.value = saved;
             });
             if (saved) this.micDevice = saved;
         } catch (e) {
@@ -308,7 +313,7 @@ class GeminiAIController {
                 .then((data) => {
                     const reply = data.text || 'No response from Gemini.';
                     this.addMessage('You (Voice)', '🎤 spoken request');
-                    this.addMessage('Coco', reply);
+                    this.addMessage(this.profileName, reply);
                     this.speak(reply);
                     if (data.action) this.executeAIAction(data.action);
                     const status = document.getElementById('micStatusText');
@@ -467,7 +472,7 @@ class GeminiAIController {
             .then((res) => res.json())
             .then((data) => {
                 const reply = data.text || 'No response from Gemini.';
-                this.addMessage('Coco', reply);
+                this.addMessage(this.profileName, reply);
                 this.speak(reply);
                 if (data.action) this.executeAIAction(data.action);
             })

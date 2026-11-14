@@ -14,6 +14,8 @@ Browser UI ──HTTP──> server.py ──GPIO──> L298N / servos / MOSFET
 
 ## Features
 
+- **Profile tab** – choose the parrot's name, personality, AI voice, microphone,
+  audio output, camera and mimic mode in one place.
 - **Gemini AI conversation** with microphone input, camera vision and function
   calling (`parrot_sing`, `parrot_dance`, `parrot_talk`, `parrot_spotlight`,
   `parrot_stage`).
@@ -111,7 +113,7 @@ Parrot/
 ├── WIRING_DIAGRAM.md
 ├── music/                 MP3 library (git-ignored)
 └── static/
-    ├── index.html         Tabs: Stage, Settings, Wiring, Instructions
+    ├── index.html         Tabs: Control, Profile, Settings, Wiring, Instructions
     ├── style.css          Dark cyber-parrot UI
     ├── app.js             UI orchestration and state polling
     ├── parrot3d.js        Three.js parrot, stage and spotlight preview

@@ -17,6 +17,7 @@
 
         <nav class="top-nav-tabs">
             <button class="nav-tab-btn active" data-view="viewAnimation">🎮 Parrot Control</button>
+            <button class="nav-tab-btn" data-view="viewProfile">🦜 Profile</button>
             <button class="nav-tab-btn" data-view="viewSettings">⚙️ Hardware &amp; Settings</button>
             <button class="nav-tab-btn" data-view="viewWiring">🔌 Wiring Schematic</button>
             <button class="nav-tab-btn" data-view="viewInstructions">📖 Guide &amp; Instructions</button>
@@ -288,7 +289,118 @@
         </aside>
     </div>
 
-    <!-- VIEW 2: HARDWARE SETTINGS -->
+    <!-- VIEW 2: PARROT PROFILE -->
+    <div class="view-screen" id="viewProfile">
+        <div class="panel center" style="max-width:980px; margin:20px auto;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:16px; flex-wrap:wrap;">
+                <div>
+                    <div class="section-title">🦜 Parrot Profile &amp; Experience</div>
+                    <div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">
+                        Choose the parrot's name, personality, voice, microphone, audio output and camera in one place.
+                    </div>
+                </div>
+                <span id="statusProfileSave" style="font-size:0.78rem; color:var(--accent-green);">Ready</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); gap:14px;">
+                <div class="leg-card">
+                    <div class="leg-title" style="color:var(--accent-cyan); margin-bottom:10px;">🪪 IDENTITY &amp; PERSONALITY</div>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Parrot Name</span></div>
+                        <input type="text" id="profileNameInput" value="Coco" maxlength="60" placeholder="Coco" style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:8px; border-radius:6px; font-size:0.82rem;">
+                    </div>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Personality</span></div>
+                        <select id="profilePersonalitySelect" style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:8px; border-radius:6px; font-size:0.82rem;">
+                            <option value="playful">Playful Showman</option>
+                            <option value="pirate">Pirate Macaw</option>
+                            <option value="wise">Wise Old Macaw</option>
+                            <option value="diva">Showbiz Diva</option>
+                            <option value="cyber">Cyberpunk AI</option>
+                            <option value="sweet">Sweet Companion</option>
+                            <option value="custom">Custom Personality</option>
+                        </select>
+                    </div>
+                    <div class="slider-control" id="profileCustomPersonalityWrap" style="display:none;">
+                        <div class="slider-label"><span>Custom Personality</span></div>
+                        <textarea id="profileCustomPersonality" rows="4" maxlength="1200" placeholder="Describe how Coco should think, speak and behave..." style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:8px; border-radius:6px; font-size:0.8rem; resize:vertical;"></textarea>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,0.2); padding:8px 10px; border-radius:6px; margin-top:10px;">
+                        <div>
+                            <div style="font-size:0.78rem; color:var(--text-primary); font-weight:bold;">🦜 Mimic Mode</div>
+                            <div style="font-size:0.68rem; color:var(--text-muted);">Let your parrot repeat short phrases and sounds.</div>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="profileMimicToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="leg-card">
+                    <div class="leg-title" style="color:var(--accent-purple); margin-bottom:10px;">🗣️ VOICE &amp; AUDIO</div>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>AI Voice</span></div>
+                        <select id="profileVoiceSelect" style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:8px; border-radius:6px; font-size:0.82rem;">
+                            <option value="ai_female_us">♀️ Female - US Accent</option>
+                            <option value="ai_male_us">♂️ Male - US Accent</option>
+                            <option value="ai_male_uk">♂️ Male - British Accent</option>
+                            <option value="ai_female_uk">♀️ Female - British Accent</option>
+                        </select>
+                    </div>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Audio Output</span></div>
+                        <select id="profileSpeakerSelect" style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:8px; border-radius:6px; font-size:0.82rem;">
+                            <option value="browser">🌐 This Browser / Remote Speaker</option>
+                            <option value="local:default">🔊 Raspberry Pi Local Speaker</option>
+                        </select>
+                    </div>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Master Volume</span><span class="slider-val" id="profileVolumeVal">100%</span></div>
+                        <input type="range" id="profileVolumeSlider" min="0" max="100" value="100">
+                    </div>
+                    <button class="btn-preset primary" id="btnTestProfileVoice" style="width:100%; margin-top:6px; padding:8px;">🗣️ Test This Voice</button>
+                </div>
+
+                <div class="leg-card">
+                    <div class="leg-title" style="color:var(--accent-orange); margin-bottom:10px;">🎙️ MICROPHONE &amp; CAMERA</div>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Microphone Source</span></div>
+                        <select id="profileMicSource" style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:8px; border-radius:6px; font-size:0.82rem;">
+                            <option value="browser">🌐 Remote Browser / Webcam Microphone</option>
+                            <option value="default">🎙️ Raspberry Pi Local Microphone</option>
+                        </select>
+                    </div>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Browser Microphone Device</span></div>
+                        <select id="profileMicDevice" style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:8px; border-radius:6px; font-size:0.82rem;">
+                            <option value="">Browser default microphone</option>
+                        </select>
+                    </div>
+                    <div class="slider-control">
+                        <div class="slider-label"><span>Mic Sensitivity</span><span class="slider-val" id="profileMicSensitivityVal">100%</span></div>
+                        <input type="range" id="profileMicSensitivity" min="10" max="200" value="100">
+                    </div>
+                    <div class="slider-control" style="margin-bottom:0;">
+                        <div class="slider-label"><span>Camera Source</span></div>
+                        <select id="profileCameraSource" style="width:100%; background:var(--input-bg); color:var(--text-primary); border:1px solid var(--border-color); padding:8px; border-radius:6px; font-size:0.82rem;">
+                            <option value="usb">📹 USB Webcam (default)</option>
+                            <option value="usb1">📹 USB Camera 1 (/dev/video1)</option>
+                            <option value="csi">📷 Raspberry Pi CSI Camera</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display:flex; gap:10px; align-items:center; margin-top:16px; flex-wrap:wrap;">
+                <button class="btn-preset primary" id="btnSaveProfile" style="padding:10px 22px;">💾 Save Profile</button>
+                <button class="btn-preset" id="btnResetProfile" style="padding:10px 16px; background:var(--input-bg);">↺ Reset Profile</button>
+                <span style="font-size:0.75rem; color:var(--text-muted);">The profile is saved on the Raspberry Pi and applies to Gemini, TTS, camera and audio.</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- VIEW 3: HARDWARE SETTINGS -->
     <div class="view-screen" id="viewSettings">
         <div class="panel center" style="max-width:820px; margin:20px auto;">
             <div class="section-title">⚙️ Gemmy AI Parrot Hardware Settings</div>
@@ -371,7 +483,7 @@
         </div>
     </div>
 
-    <!-- VIEW 3: WIRING SCHEMATIC -->
+    <!-- VIEW 4: WIRING SCHEMATIC -->
     <div class="view-screen" id="viewWiring">
         <div class="panel center" style="max-width:980px; margin:20px auto;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">

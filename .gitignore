@@ -10,3 +10,4 @@ cert.pem
 key.pem
 music/*
 !music/.gitkeep
+profile.json

@@ -25,6 +25,33 @@ class GeminiParrotBridge:
             "Keep spoken replies to one or two sentences so the performance stays lively."
         )
 
+    def _system_instruction(self, profile=None):
+        profile = profile or {}
+        name = str(profile.get("name") or "Coco").strip() or "Coco"
+        personality = str(profile.get("personality_prompt") or "").strip()
+        mimic = bool(profile.get("mimic_mode"))
+
+        instruction = (
+            "You are %s, the charismatic AI brain of a large Gemmy animatronic macaw parrot "
+            "performing on a rotating stage. You can open your beak, blink your eyes, flap your "
+            "wings, move a two-axis spotlight and rotate your stage.\n"
+            "Your job is to:\n"
+            "1. Hold warm, witty, concise conversations with the people in the room.\n"
+            "2. Describe what you see when the user shares a camera frame.\n"
+            "3. Use the provided functions when asked to sing, dance, move the spotlight or turn "
+            "the stage.\n"
+            "Keep spoken replies to one or two sentences so the performance stays lively."
+        ) % name
+
+        if personality:
+            instruction += "\n\nYour personality: " + personality
+        if mimic:
+            instruction += (
+                "\nYou love mimicking sounds and short phrases. When it fits naturally, repeat a "
+                "short phrase or sound the user makes in a funny parrot voice, then respond."
+            )
+        return instruction
+
     def _tools(self):
         number = types.Schema(type=types.Type.NUMBER)
         string = types.Schema(type=types.Type.STRING)
@@ -110,21 +137,21 @@ class GeminiParrotBridge:
         except Exception as exc:
             return {"text": "Gemini API error: %s" % exc, "action": None}
 
-    def generate_chat_response(self, api_key, user_text="", image_bytes=None):
+    def generate_chat_response(self, api_key, user_text="", image_bytes=None, profile=None):
         contents = []
         if image_bytes:
             contents.append(types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"))
         contents.append(user_text or "Describe what you see in front of you!")
 
         config = types.GenerateContentConfig(
-            system_instruction=self.system_instruction,
+            system_instruction=self._system_instruction(profile),
             tools=self._tools(),
             temperature=0.7,
         )
         return self._run(api_key, contents, config)
 
     def generate_voice_chat_response(
-        self, api_key, audio_bytes=None, mime_type="audio/webm", image_bytes=None
+        self, api_key, audio_bytes=None, mime_type="audio/webm", image_bytes=None, profile=None
     ):
         contents = []
         if image_bytes:
@@ -139,7 +166,7 @@ class GeminiParrotBridge:
             contents.append("What do you see?")
 
         config = types.GenerateContentConfig(
-            system_instruction=self.system_instruction,
+            system_instruction=self._system_instruction(profile),
             tools=self._tools(),
             temperature=0.7,
         )

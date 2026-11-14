@@ -34,6 +34,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DIRECTORY = os.environ.get("DIRECTORY", os.path.join(BASE_DIR, "static"))
 AUDIO_DIR = os.path.join(BASE_DIR, "music")
 HARDWARE_CONFIG_FILE = os.path.join(BASE_DIR, "hardware_config.json")
+PROFILE_FILE = os.path.join(BASE_DIR, "profile.json")
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
 
@@ -187,6 +188,103 @@ hardware_config = {
 }
 
 
+PERSONALITIES = {
+    "playful": {
+        "label": "Playful Showman",
+        "prompt": "Playful, quick-witted tropical showman. Loves puns, playful teasing and getting the audience to laugh.",
+    },
+    "pirate": {
+        "label": "Pirate Macaw",
+        "prompt": "Swashbuckling pirate macaw. Uses nautical jokes, a bold mischievous streak and the occasional 'arrr'.",
+    },
+    "wise": {
+        "label": "Wise Old Macaw",
+        "prompt": "Calm, wise old macaw. Thoughtful and warm, with gentle humour and short pieces of practical wisdom.",
+    },
+    "diva": {
+        "label": "Showbiz Diva",
+        "prompt": "Glamorous showbiz diva. Theatrical, dramatic, generous with compliments and always ready for the spotlight.",
+    },
+    "cyber": {
+        "label": "Cyberpunk AI",
+        "prompt": "Futuristic cyberpunk parrot. Clever, fast-talking, neon-nightclub energy and playful tech references.",
+    },
+    "sweet": {
+        "label": "Sweet Companion",
+        "prompt": "Affectionate companion parrot. Gentle, encouraging, comforting and always happy to see the people nearby.",
+    },
+    "custom": {
+        "label": "Custom Personality",
+        "prompt": "",
+    },
+}
+
+
+profile_lock = threading.Lock()
+
+parrot_profile = {
+    "name": "Coco",
+    "personality": "playful",
+    "personality_custom": "",
+    "mimic_mode": False,
+    "voice": "ai_female_us",
+    "camera_source": "usb",
+    "mic_source": "browser",
+    "mic_device": "",
+    "mic_sensitivity": 100,
+    "speaker_source": "browser",
+    "speaker_volume": 100,
+}
+
+
+def load_profile():
+    if os.path.exists(PROFILE_FILE):
+        try:
+            with open(PROFILE_FILE, "r") as handle:
+                saved = json.load(handle)
+            if isinstance(saved, dict):
+                for key in parrot_profile:
+                    if key in saved:
+                        parrot_profile[key] = saved[key]
+        except Exception:
+            pass
+
+
+def save_profile():
+    try:
+        with open(PROFILE_FILE, "w") as handle:
+            json.dump(parrot_profile, handle, indent=2)
+    except Exception:
+        pass
+
+
+def current_profile():
+    with profile_lock:
+        data = dict(parrot_profile)
+    data["camera_source"] = hardware_config.get("camera_source", data.get("camera_source", "usb"))
+    data["mic_source"] = hardware_config.get("mic_source", data.get("mic_source", "browser"))
+    data["mic_device"] = hardware_config.get("mic_device", data.get("mic_device", ""))
+    data["mic_sensitivity"] = hardware_config.get("mic_sensitivity", data.get("mic_sensitivity", 100))
+    data["speaker_source"] = hardware_config.get("speaker_source", data.get("speaker_source", "browser"))
+    data["speaker_volume"] = hardware_config.get("speaker_volume", data.get("speaker_volume", 100))
+    with state_lock:
+        data["voice"] = parrot_state.get("voice", data.get("voice", "ai_female_us"))
+    return data
+
+
+def profile_for_gemini():
+    data = current_profile()
+    key = str(data.get("personality", "playful"))
+    if key == "custom":
+        prompt = str(data.get("personality_custom") or "").strip()
+        if not prompt:
+            prompt = PERSONALITIES["playful"]["prompt"]
+    else:
+        prompt = PERSONALITIES.get(key, PERSONALITIES["playful"])["prompt"]
+    data["personality_prompt"] = prompt
+    return data
+
+
 def load_hardware_config():
     if os.path.exists(HARDWARE_CONFIG_FILE):
         try:
@@ -205,6 +303,7 @@ def save_hardware_config():
 
 
 load_hardware_config()
+load_profile()
 camera_stream.set_source(hardware_config.get("camera_source", "usb"))
 
 
@@ -234,7 +333,7 @@ parrot_state = {
     },
     "beat_energy": 0,
     "last_beat": 0.0,
-    "voice": "ai_female_us",
+    "voice": parrot_profile.get("voice", "ai_female_us"),
 }
 
 _last_blink = 0.0
@@ -446,6 +545,11 @@ class ParrotRequestHandler(http.server.SimpleHTTPRequestHandler):
             self.serve_camera_frame()
         elif route in ("/api/hardware/config", "/api/hardware/select"):
             self.send_json(hardware_config)
+        elif route == "/api/profile":
+            self.send_json({
+                "profile": current_profile(),
+                "personalities": PERSONALITIES,
+            })
         elif route in ("/api/audio/list", "/api/music/list"):
             self.send_json({"files": self.list_audio_files()})
         elif route in ("/api/audio/outputs", "/api/audio/sinks"):
@@ -553,6 +657,47 @@ class ParrotRequestHandler(http.server.SimpleHTTPRequestHandler):
                 parrot_state["last_beat"] = time.time()
             self.send_json({"success": True, "energy": energy})
 
+        elif route == "/api/profile":
+            profile = data.get("profile", data)
+            with profile_lock:
+                if "name" in profile:
+                    name = str(profile["name"]).strip()[:60]
+                    parrot_profile["name"] = name or "Coco"
+                if "personality" in profile:
+                    key = str(profile["personality"])
+                    parrot_profile["personality"] = key if key in PERSONALITIES else "playful"
+                if "personality_custom" in profile:
+                    parrot_profile["personality_custom"] = str(profile["personality_custom"])[:1200]
+                if "mimic_mode" in profile:
+                    parrot_profile["mimic_mode"] = bool(profile["mimic_mode"])
+                if "voice" in profile:
+                    voice = str(profile["voice"])
+                    parrot_profile["voice"] = voice if voice in (
+                        "ai_female_us", "ai_male_us", "ai_male_uk", "ai_female_uk"
+                    ) else "ai_female_us"
+                    with state_lock:
+                        parrot_state["voice"] = parrot_profile["voice"]
+
+                for key in ("camera_source", "mic_source", "mic_device", "speaker_source"):
+                    if key in profile:
+                        value = str(profile[key])
+                        parrot_profile[key] = value
+                        hardware_config[key] = value
+                for key in ("mic_sensitivity", "speaker_volume"):
+                    if key in profile:
+                        try:
+                            value = max(0, min(200, int(profile[key])))
+                        except Exception:
+                            continue
+                        parrot_profile[key] = value
+                        hardware_config[key] = value
+
+            if "camera_source" in profile:
+                camera_stream.set_source(hardware_config["camera_source"])
+            save_profile()
+            save_hardware_config()
+            self.send_json({"success": True, "profile": current_profile()})
+
         elif route in ("/api/hardware/config", "/api/hardware/select"):
             for key in ("camera_source", "mic_source", "mic_device", "speaker_source"):
                 if key in data:
@@ -582,7 +727,9 @@ class ParrotRequestHandler(http.server.SimpleHTTPRequestHandler):
         elif route == "/api/gemini/chat":
             api_key = data.get("api_key") or os.environ.get("GEMINI_API_KEY", "")
             image_bytes = self.capture_camera_bytes() if data.get("include_vision", True) else None
-            result = gemini_bridge.generate_chat_response(api_key, data.get("prompt", ""), image_bytes)
+            result = gemini_bridge.generate_chat_response(
+                api_key, data.get("prompt", ""), image_bytes, profile_for_gemini()
+            )
             self.apply_ai_action(result.get("action"))
             self.send_json(result)
 
@@ -592,7 +739,8 @@ class ParrotRequestHandler(http.server.SimpleHTTPRequestHandler):
             audio_bytes = base64.b64decode(audio_b64) if audio_b64 else None
             image_bytes = self.capture_camera_bytes() if data.get("include_vision", True) else None
             result = gemini_bridge.generate_voice_chat_response(
-                api_key, audio_bytes, data.get("mime_type", "audio/webm"), image_bytes
+                api_key, audio_bytes, data.get("mime_type", "audio/webm"), image_bytes,
+                profile_for_gemini(),
             )
             self.apply_ai_action(result.get("action"))
             self.send_json(result)
@@ -676,7 +824,9 @@ class ParrotRequestHandler(http.server.SimpleHTTPRequestHandler):
 
             query = urllib.parse.parse_qs(parsed.query)
             text = re.sub(r"\*[^*]*\*", "", query.get("text", ["Hello!"])[0]).strip() or "Hello!"
-            voice = query.get("voice", ["ai_female_us"])[0]
+            with state_lock:
+                default_voice = parrot_state.get("voice", "ai_female_us")
+            voice = query.get("voice", [default_voice])[0]
             tld_map = {
                 "ai_female_us": ("en", "com"),
                 "ai_male_us": ("en", "us"),
