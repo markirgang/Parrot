@@ -3,9 +3,11 @@
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 import threading
+import time
 import urllib.parse
 import urllib.request
 
@@ -98,6 +100,127 @@ def list_local_audio_outputs():
             pass
 
     return outputs
+
+
+def list_local_audio_inputs():
+    inputs = [{"id": "default", "label": "System Default Microphone", "default": True}]
+    seen = {"default"}
+
+    try:
+        status = subprocess.run(["wpctl", "status"], capture_output=True, text=True, timeout=4).stdout
+        in_audio = False
+        in_sources = False
+        for line in status.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("Audio"):
+                in_audio = True
+                continue
+            if stripped.startswith("Video"):
+                in_audio = False
+                in_sources = False
+                continue
+            if in_audio and stripped.endswith("Sources:"):
+                in_sources = True
+                continue
+            if in_sources and stripped.endswith(("Filters:", "Streams:", "Sinks:")):
+                break
+            if not in_sources:
+                continue
+            clean = stripped.lstrip("│├└─ ").strip()
+            match = re.match(r"^\*?\s*(\d+)\.\s+(.+?)(?:\s+\[vol:[^\]]*\])?$", clean)
+            if not match:
+                continue
+            node_id, label = match.group(1), match.group(2).strip()
+            name = label
+            try:
+                info = subprocess.run(["wpctl", "inspect", node_id], capture_output=True, text=True, timeout=3).stdout
+                name_match = re.search(r'node\.name\s*=\s*"([^"]+)"', info)
+                if name_match:
+                    name = name_match.group(1)
+            except Exception:
+                pass
+            if name in seen:
+                continue
+            seen.add(name)
+            inputs.append({"id": name, "label": label, "default": clean.startswith("*")})
+    except Exception:
+        pass
+
+    if len(inputs) <= 1:
+        try:
+            result = subprocess.run(["arecord", "-l"], capture_output=True, text=True, timeout=4).stdout
+            for line in result.splitlines():
+                match = re.match(r"card (\d+):\s+(\S+)\s+\[(.+?)\],\s+device (\d+):\s+(.+)", line)
+                if match:
+                    card, short_name, _description, device, device_desc = match.groups()
+                    name = "hw:%s,%s" % (card, device)
+                    if name in seen:
+                        continue
+                    seen.add(name)
+                    inputs.append({"id": name, "label": "%s - %s" % (short_name, device_desc.strip()), "default": False})
+        except Exception:
+            pass
+
+    return inputs
+
+
+def record_local_audio(duration=3.5, device="default"):
+    """Record an audio sample from the selected local microphone."""
+    target = str(device or "").replace("local:", "", 1).strip()
+    if target in ("", "browser", "local"):
+        target = "default"
+
+    tmp_wav = None
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as fh:
+            tmp_wav = fh.name
+
+        recorded = False
+        if shutil.which("pw-record") and target != "default" and not target.startswith("hw:"):
+            cmd = ["pw-record", "--rate", "16000", "--channels", "1"]
+            if target:
+                cmd += ["--target", target]
+            cmd.append(tmp_wav)
+            try:
+                proc = subprocess.Popen(cmd)
+                time.sleep(float(duration))
+                proc.send_signal(signal.SIGINT)
+                proc.wait(timeout=3)
+                if os.path.isfile(tmp_wav) and os.path.getsize(tmp_wav) > 100:
+                    recorded = True
+            except Exception:
+                pass
+
+        if not recorded and shutil.which("arecord"):
+            dev_arg = target if target and target != "default" else "default"
+            if "PIXY" in dev_arg or "pixy" in dev_arg.lower():
+                dev_arg = "dsnoop:CARD=PIXY,DEV=0"
+            cmd = [
+                "arecord", "-q", "-d", str(max(1, int(duration))), "-f", "S16_LE",
+                "-r", "16000", "-c", "1", "-t", "wav"
+            ]
+            if dev_arg:
+                cmd += ["-D", dev_arg]
+            cmd.append(tmp_wav)
+            try:
+                subprocess.run(cmd, timeout=duration + 3)
+                if os.path.isfile(tmp_wav) and os.path.getsize(tmp_wav) > 100:
+                    recorded = True
+            except Exception:
+                pass
+
+        if recorded and os.path.isfile(tmp_wav):
+            with open(tmp_wav, "rb") as fh:
+                return fh.read()
+    except Exception:
+        pass
+    finally:
+        if tmp_wav and os.path.isfile(tmp_wav):
+            try:
+                os.remove(tmp_wav)
+            except Exception:
+                pass
+    return None
 
 
 def load_audio_bytes_from_url(url):

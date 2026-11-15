@@ -4,6 +4,7 @@ Exposes text and voice conversation plus function calling so the model can
 drive the parrot's stage, wings, beak and spotlight.
 """
 
+from ai_engine import call_ai
 from google import genai
 from google.genai import types
 
@@ -108,36 +109,19 @@ class GeminiParrotBridge:
             ])
         ]
 
-    def _run(self, api_key, contents, config):
-        if not api_key:
-            return {
-                "text": "Add a Google Gemini API key in Settings to enable AI conversation.",
-                "action": None,
-            }
-        try:
-            client = genai.Client(api_key=api_key)
-            response = client.models.generate_content(
-                model=MODEL_NAME,
-                contents=contents,
-                config=config,
-            )
+    def _run(self, api_key, contents, config, provider="", model="", ollama_url=""):
+        return call_ai(
+            api_key=api_key,
+            contents=contents,
+            config=config,
+            provider=provider,
+            model=model,
+            ollama_url=ollama_url,
+        )
 
-            action = None
-            text_response = response.text or ""
-            if response.function_calls:
-                call = response.function_calls[0]
-                try:
-                    args = dict(call.args)
-                except Exception:
-                    args = call.args
-                action = {"name": call.name, "args": args}
-                if not text_response:
-                    text_response = "Right away!"
-            return {"text": text_response, "action": action}
-        except Exception as exc:
-            return {"text": "Gemini API error: %s" % exc, "action": None}
-
-    def generate_chat_response(self, api_key, user_text="", image_bytes=None, profile=None):
+    def generate_chat_response(
+        self, api_key, user_text="", image_bytes=None, profile=None, provider="", model="", ollama_url=""
+    ):
         contents = []
         if image_bytes:
             contents.append(types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"))
@@ -148,10 +132,10 @@ class GeminiParrotBridge:
             tools=self._tools(),
             temperature=0.7,
         )
-        return self._run(api_key, contents, config)
+        return self._run(api_key, contents, config, provider=provider, model=model, ollama_url=ollama_url)
 
     def generate_voice_chat_response(
-        self, api_key, audio_bytes=None, mime_type="audio/webm", image_bytes=None, profile=None
+        self, api_key, audio_bytes=None, mime_type="audio/webm", image_bytes=None, profile=None, provider="", model="", ollama_url=""
     ):
         contents = []
         if image_bytes:
@@ -170,4 +154,4 @@ class GeminiParrotBridge:
             tools=self._tools(),
             temperature=0.7,
         )
-        return self._run(api_key, contents, config)
+        return self._run(api_key, contents, config, provider=provider, model=model, ollama_url=ollama_url)

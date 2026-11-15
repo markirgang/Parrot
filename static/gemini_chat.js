@@ -171,6 +171,10 @@ class GeminiAIController {
     }
 
     async populateMicDevices() {
+        if (window.AudioHardware && typeof window.AudioHardware.populate === 'function') {
+            await window.AudioHardware.populate();
+            return;
+        }
         const ids = ['selectMicDevice', 'profileMicDevice'];
         const selects = ids.map((id) => document.getElementById(id)).filter(Boolean);
         if (!selects.length || !navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
