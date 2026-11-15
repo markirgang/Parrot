@@ -292,7 +292,10 @@ class GeminiAIController {
             if (vuVal) vuVal.textContent = scaledVol + '%';
 
             if (enableRecording && this.isListening && !this.aiSpeaking) {
-                if (scaledVol > 18) {
+                const speechThresh = Math.max(28, Math.round(50 - (this.micSensitivity / 100.0) * 22));
+                if (scaledVol >= speechThresh) {
+                    this.voicedFrames = (this.voicedFrames || 0) + 1;
+                    this.lastHeardVoiceAt = performance.now();
                     if (!this.isRecordingAudio) this.startAudioChunkRecording(stream);
                     this.silenceStart = 0;
                 } else if (this.isRecordingAudio) {
@@ -310,6 +313,8 @@ class GeminiAIController {
     startAudioChunkRecording(stream) {
         this.isRecordingAudio = true;
         this.audioChunks = [];
+        this.recordingStart = performance.now();
+        this.voicedFrames = 0;
         try {
             this.mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
         } catch (e) {
