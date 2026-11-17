@@ -304,7 +304,7 @@ class GeminiAIController {
                     this.silenceStart = 0;
                 } else if (this.isRecordingAudio) {
                     if (!this.silenceStart) this.silenceStart = performance.now();
-                    if (performance.now() - this.silenceStart > 2000) this.stopAndSendAudioChunk();
+                    if (performance.now() - this.silenceStart > 600) this.stopAndSendAudioChunk();
                 }
             }
 
