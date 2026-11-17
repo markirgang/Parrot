@@ -15,7 +15,7 @@ class GeminiAIController {
 
         this.profileName = 'Coco';
         this.isListening = false;
-        this.aiSpeaking = false;
+        this.aiSpeaking = false; if (window.AudioHardware) window.AudioHardware.setAiSpeaking(false);
         this.speechEndTimer = null;
         this.lastMouthState = false;
 
@@ -304,7 +304,7 @@ class GeminiAIController {
                     this.silenceStart = 0;
                 } else if (this.isRecordingAudio) {
                     if (!this.silenceStart) this.silenceStart = performance.now();
-                    if (performance.now() - this.silenceStart > 600) this.stopAndSendAudioChunk();
+                    if (performance.now() - this.silenceStart > 380) this.stopAndSendAudioChunk();
                 }
             }
 
@@ -435,7 +435,7 @@ class GeminiAIController {
     }
 
     beginSpeaking(estimatedMs) {
-        this.aiSpeaking = true;
+        this.aiSpeaking = true; if (window.AudioHardware) window.AudioHardware.setAiSpeaking(true);
         if (this.app && this.app.setTalkActive) this.app.setTalkActive(true);
         clearTimeout(this.speechEndTimer);
         if (estimatedMs) {
@@ -444,7 +444,7 @@ class GeminiAIController {
     }
 
     endSpeaking() {
-        this.aiSpeaking = false;
+        this.aiSpeaking = false; if (window.AudioHardware) window.AudioHardware.setAiSpeaking(false);
         clearTimeout(this.speechEndTimer);
         this.speechEndTimer = null;
         if (this.app) {
@@ -459,7 +459,7 @@ class GeminiAIController {
         if (!cleanText) return;
 
         const voiceSelect = document.getElementById('selectVoice');
-        const voice = voiceSelect ? voiceSelect.value : 'ai_female_us';
+        const voice = voiceSelect ? voiceSelect.value : 'ai_butler_uk';
         const estimated = Math.max(2200, cleanText.length * 75);
 
         const target = (window.AudioOutputDevices && AudioOutputDevices.getTarget) ? AudioOutputDevices.getTarget() : '';
